@@ -190,17 +190,28 @@ def main():
                 continue
 
             if intent == "off_topic":
-                import random
-                refusals = [
-                    "⚠️ **Warning: Unsportsmanlike Conduct!** Judge! This is a Magic tournament, not a life advice seminar. I can't answer that. Stick to the stack!",
-                    "🛑 **Game Loss!** Bringing outside assistance/topics into this match is strictly forbidden. The Comprehensive Rules do not cover that. Please return to your seat.",
-                    "🚫 **Countered!** I'm a Judge, not a search engine for the multiverse. Unless that involves a Mana Leak or a Shivan Dragon, I'm staying out of it.",
-                    "📑 **Rule 100.1:** Magic is a game. Your question is not. Please consult the Comp Rules for game-related queries only.",
-                    "🤡 **Judge!** We are playing Magic here. Talking about that is a major distraction. Consider this a final warning before I call the Head Judge."
-                ]
                 print(f"Using {model_display} (Off-topic)...")
+                off_topic_system = """You are a strict and humorous Magic: The Gathering Level 3 Judge. 
+                The user has asked a question completely unrelated to Magic rules. 
+                Refuse to answer in a creative, funny way using MTG tournament lingo 
+                (e.g., Warnings, Game Losses, DQ, Outside Assistance, Slow Play, the Stack, etc.). 
+                Do NOT answer their original question. Be concise and stay in character."""
+                
+                messages = [
+                    {"role": "system", "content": off_topic_system},
+                    {"role": "user", "content": user_input}
+                ]
+                
+                print("💭 Thinking...                ", end="\r")
+                response = client.chat.completions.create(
+                    model=selected_model,
+                    messages=messages,
+                    temperature=0.8,
+                    max_tokens=200
+                )
+                
                 print("\r Judge: ", end="")
-                print(random.choice(refusals))
+                print(response.choices[0].message.content)
                 print()
                 continue
 
