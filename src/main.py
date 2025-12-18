@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from groq import Groq
 from sentence_transformers import SentenceTransformer
 import numpy as np
+import requests
+import json
 
 # Load environment variables (optional, for other configs)
 load_dotenv()
@@ -51,6 +53,84 @@ def get_api_key():
             print("You may need to enter it again next time.")
 
     return api_key
+
+
+def extract_card_names(client, user_input, history=[]):
+    """
+    Uses a fast LLM call to extract potential Magic card names from the user query.
+    Returns a list of unique card names.
+    """
+    system_prompt = """You are a MTG card name extractor.
+    Identify any potential Magic: The Gathering card names in the user's message.
+    Return ONLY a JSON list of strings (e.g. ["Blood Moon", "Urza's Saga"]).
+    If no cards are found, return [].
+    Do not explain anything."""
+    
+    messages = [{"role": "system", "content": system_prompt}]
+    # Optional: add history for context, but keep it minimal to save tokens
+    if history:
+        messages.append({"role": "user", "content": f"Previous context for pronoun resolution: {history[-2:]}"})
+    messages.append({"role": "user", "content": user_input})
+    
+    try:
+        response = client.chat.completions.create(
+            model=NORMAL_MODEL,
+            messages=messages,
+            temperature=0,
+            max_tokens=100
+        )
+        content = response.choices[0].message.content.strip()
+        # Clean up any markdown code blocks
+        if "```" in content:
+            content = content.split("```")[1].replace("json", "").strip()
+        
+        cards = json.loads(content)
+        return list(set(cards)) # Unique names only
+    except:
+        return []
+
+def fetch_scryfall_data(card_names):
+    """
+    Fetches official Oracle text, rulings, and metadata from Scryfall API.
+    """
+    card_data = []
+    base_url = "https://api.scryfall.com/cards/named"
+    
+    for name in card_names:
+        try:
+            # Get card details
+            resp = requests.get(base_url, params={"exact": name})
+            if resp.status_code != 200:
+                continue
+            
+            data = resp.json()
+            card_info = {
+                "name": data.get("name"),
+                "mana_cost": data.get("mana_cost", "N/A"),
+                "type_line": data.get("type_line", "N/A"),
+                "oracle_text": data.get("oracle_text", "N/A"),
+                "power": data.get("power"),
+                "toughness": data.get("toughness"),
+                "loyalty": data.get("loyalty"),
+                "artist": data.get("artist", "N/A"),
+                "set_name": data.get("set_name", "N/A"),
+                "rarity": data.get("rarity", "N/A"),
+                "rulings": []
+            }
+            
+            # Fetch rulings
+            rulings_url = data.get("rulings_uri")
+            if rulings_url:
+                r_resp = requests.get(rulings_url)
+                if r_resp.status_code == 200:
+                    r_data = r_resp.json()
+                    card_info["rulings"] = [r.get("comment") for r in r_data.get("data", [])]
+            
+            card_data.append(card_info)
+        except:
+            continue
+            
+    return card_data
 
 def load_index():
     """Load the pre-computed rulebook index."""
@@ -121,7 +201,7 @@ def get_query_intent(query, last_intent=None):
         'cascade', 'scry', 'draw', 'discard', 'hand size', 'poison', 'planeswalker',
         'assistance', 'outside', 'infraction', 'penalty', 'warning', 'judge',
         'tournament', 'match', 'game state', 'interact', 'interaction',
-        'explain', 'card', 'how', 'what', 'does', 'if'
+        'explain', 'card', 'how', 'what', 'does', 'if', 'tell', 'about', 'who'
     ]
     
     # Check for MTG terms
@@ -238,9 +318,31 @@ def main():
             else:
                 # RULES INTENT
                 print(f"Using {model_display}...")
-                print("🔍 Finding relevant rules...", end="\r")
                 
-                # 2. Rules Retrieval (RAG)
+                # 2. Card Name Extraction & Scryfall Fetch
+                print("🔍 Identifying cards and fetching data...", end="\r")
+                potential_cards = extract_card_names(client, user_input, history=history)
+                scryfall_data = fetch_scryfall_data(potential_cards)
+                
+                card_context = ""
+                if scryfall_data:
+                    card_context = "\n=== CARD DATA FROM SCRYFALL ===\n"
+                    for card in scryfall_data:
+                        card_context += f"Name: {card['name']}\n"
+                        card_context += f"Mana Cost: {card['mana_cost']} | Type: {card['type_line']}\n"
+                        if card['power']: card_context += f"P/T: {card['power']}/{card['toughness']}\n"
+                        if card['loyalty']: card_context += f"Loyalty: {card['loyalty']}\n"
+                        card_context += f"Oracle: {card['oracle_text']}\n"
+                        card_context += f"Artist: {card['artist']} | Set: {card['set_name']} ({card['rarity']})\n"
+                        if card['rulings']:
+                            card_context += "Rulings:\n"
+                            for ruling in card['rulings'][:5]: # Top 5 rulings to save space
+                                card_context += f" - {ruling}\n"
+                        card_context += "\n"
+                    card_context += "===============================\n"
+
+                print("🔍 Finding relevant rules...              ", end="\r")
+                # 3. Rules Retrieval (RAG)
                 relevant_chunks = retrieve_relevant_chunks(
                     user_input, 
                     index_data, 
@@ -250,20 +352,23 @@ def main():
                 )
                 
                 # Build context from relevant chunks
-                context = "\n\n".join([
+                rules_context = "\n\n".join([
                     f"[Rule {chunk['rule_num']}]\n{chunk['text']}" 
                     for chunk in relevant_chunks
                 ])
                 
                 # System instruction with retrieved context
-                system_instruction = f"""You are an expert Magic: The Gathering Level 3 Judge with exceptional teaching skills. Your mission is to provide clear, concise, and practical answers to rules questions.
+                system_instruction = f"""You are an expert Magic: The Gathering Level 3 Judge with exceptional teaching skills. Your mission is to provide clear, concise, and practical answers to rules questions using the official Comprehensive Rules and specific Card Data provided.
     
     CRITICAL: Pay extremely close attention to timing restrictions, activation costs, and conditions in the rules. Many abilities have restrictions like "Activate only as a sorcery" or "Activate only during combat" - these MUST be respected in your examples.
     
+    {card_context}
+    
     RESPONSE STRUCTURE:
     1. **Direct Answer** (1-2 sentences): Answer the question immediately and clearly.
-    2. **Key Rules** (bullet points): List only the most relevant rule citations with brief explanations. ALWAYS include timing restrictions if relevant.
-    3. **Game Example** (required): End EVERY response with a concrete, realistic game scenario that illustrates the rule in action. Use actual card names when possible. Your examples MUST follow all timing restrictions.
+    2. **Card Info** (required if card data exists): Briefly state the card name, artist, and set name for each card mentioned.
+    3. **Key Rules** (bullet points): List only the most relevant rule citations with brief explanations. ALWAYS include timing restrictions if relevant.
+    4. **Game Example** (required): End EVERY response with a concrete, realistic game scenario that illustrates the rule in action. Use actual card names when possible. Your examples MUST follow all timing restrictions.
     
     STYLE GUIDELINES:
     - Be concise but complete. Avoid unnecessary verbosity.
@@ -272,9 +377,13 @@ def main():
     - Always cite specific rule numbers (e.g., "Rule 702.19b").
     - **CRITICAL**: When discussing abilities, always check for and mention timing restrictions ("only as a sorcery", "only during combat", etc.)
     - Your game examples should be vivid, help players visualize the situation, and be LEGALLY CORRECT.
+    - If card data is provided above, use that EXACT oracle text for your logic.
     
     FORMAT YOUR RESPONSES LIKE THIS:
     [Direct answer to the question]
+    
+    **Card Details:**
+    [Name] - [Artist] - [Set Name]
     
     **Key Rules:**
     - Rule X.Y: [brief explanation including any timing restrictions]
@@ -284,10 +393,10 @@ def main():
     [Describe a realistic scenario with specific cards and game state that demonstrates the rule - must be legally correct]
     
     === RELEVANT COMPREHENSIVE RULES ===
-    {context}
+    {rules_context}
     ==========================="""
                 
-                print("💭 Thinking...                ", end="\r")
+                # rules_context = ... (built above)
                 
                 messages = [{"role": "system", "content": system_instruction}]
                 # Add conversation history
@@ -306,7 +415,8 @@ def main():
                 final_response = response.choices[0].message.content
 
             # Display response
-            print("\r Judge: ", end="")
+            print("\r" + " " * 50 + "\r", end="") # Clear line
+            print("Judge: ", end="")
             print(final_response)
             print()
             

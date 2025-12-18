@@ -3,3 +3,4 @@ python-dotenv
 keyring
 sentence-transformers
 numpy
+requests

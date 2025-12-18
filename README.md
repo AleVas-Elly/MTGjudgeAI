@@ -10,6 +10,7 @@ An intelligent Magic: The Gathering rules assistant powered by **Retrieval-Augme
 - **Expert Level Accuracy**: Emulates a Level 3 MTG Judge with clear, concise, and legally correct answers.
 - **RAG Architecture**: Processes the entire Comprehensive Ruleset by indexing it into semantic chunks, allowing for fast and relevant context retrieval.
 - **Vivid Game Examples**: Every answer includes a concrete game scenario with specific card names to illustrate the rules.
+- **Scryfall Oracle Integration**: Automatically fetches official card text, rulings, and metadata (artist, set, rarity) to eliminate hallucinations.
 - **System Keychain Integration**: Securely stores your Groq API key using `keyring`.
 - **Dual-Mode Intelligence**: Choose between a fast 'Normal' brain (8B) for simple queries and an 'Elite' smart brain (70B) for complex rules interactions.
 - **High Throughput**: Capable of ~60+ Questions Per Minute (QPM) on the 8B model.
