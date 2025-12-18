@@ -66,10 +66,17 @@ def load_index():
     print(f"   Loaded {len(index_data['chunks'])} rule chunks")
     return index_data
 
-def retrieve_relevant_chunks(query, index_data, model, top_k=TOP_K_CHUNKS):
-    """Retrieve the most relevant rule chunks for a query."""
+def retrieve_relevant_chunks(query, index_data, model, history=None, top_k=TOP_K_CHUNKS):
+    """Retrieve the most relevant rule chunks, using history for context."""
+    # Combine query with last user question for better context if it's a short question
+    search_query = query
+    if history and len(query.split()) < 5:
+        # history is [user, assistant, user, assistant...]
+        last_user_q = history[-2] if len(history) >= 2 else ""
+        search_query = f"{last_user_q} {query}"
+        
     # Generate query embedding
-    query_embedding = model.encode([query])[0]
+    query_embedding = model.encode([search_query])[0]
     
     # Calculate cosine similarity with all chunks
     chunk_embeddings = index_data['embeddings']
@@ -83,10 +90,11 @@ def retrieve_relevant_chunks(query, index_data, model, top_k=TOP_K_CHUNKS):
     relevant_chunks = [index_data['chunks'][i] for i in top_indices]
     return relevant_chunks
 
-def get_query_intent(query):
+def get_query_intent(query, last_intent=None):
     """
-    Very simple intent classifier to distinguish between MTG rules 
-    and questions about the bot itself (meta questions).
+    Simple intent classifier with context awareness.
+    If the current query is very short or vague, and the last intent was 'rules',
+    it leans towards 'rules' to allow follow-ups.
     """
     # Keywords that suggest a question about the bot/self
     meta_keywords = [
@@ -97,7 +105,7 @@ def get_query_intent(query):
     
     q_lower = query.lower().strip()
     
-    # Check for exact matches or high-likelihood keywords
+    # Check for meta intent
     for keyword in meta_keywords:
         if keyword in q_lower:
             return "meta"
@@ -110,16 +118,27 @@ def get_query_intent(query):
         'win', 'lose', 'commander', 'rule', 'trigger', 'ability', 'mana', 
         'tap', 'untap', 'block', 'attack', 'layer', 'state-based', 'effect', 
         'player', 'token', 'copy', 'protection', 'indestructible', 'flying',
-        'cascade', 'scry', 'draw', 'discard', 'hand size', 'poison', 'planeswalker'
+        'cascade', 'scry', 'draw', 'discard', 'hand size', 'poison', 'planeswalker',
+        'assistance', 'outside', 'infraction', 'penalty', 'warning', 'judge',
+        'tournament', 'match', 'game state', 'interact', 'interaction',
+        'explain', 'card', 'how', 'what', 'does', 'if'
     ]
     
-    # Heuristic: Check for MTG terms
+    # Check for MTG terms
     for keyword in mtg_keywords:
         if keyword in q_lower:
             return "rules"
             
-    # If it's not meta and has no MTG terms, it's likely off-topic
+    # Context-aware follow-ups: if it's a follow-up-style question and the last intent was rules/meta, keep it
+    follow_up_starters = ['how', 'what', 'and', 'why', 'can', 'does', 'if']
+    is_follow_up = any(q_lower.startswith(s) for s in follow_up_starters)
+    
+    if (len(q_lower.split()) <= 12 or is_follow_up) and last_intent in ["rules", "meta"]:
+        return last_intent
+        
+    # Default to off-topic if no keywords found and not a clear follow-up
     return "off_topic"
+
 
 def main():
     print("🔮 MTG Rulebook AI Judge (RAG Edition) 🔮")
@@ -146,6 +165,7 @@ def main():
 
     # Chat history
     history = []
+    last_intent = None
 
     while True:
         try:
@@ -167,139 +187,132 @@ def main():
             model_display = "Smart (70B) 🧠" if choice == '2' else "Normal (8B) ⚡"
             
             # 1. Intent Classification
-            intent = get_query_intent(user_input)
+            intent = get_query_intent(user_input, last_intent=last_intent)
+            last_intent = intent
+            
+            final_response = ""
             
             if intent == "meta":
                 print(f"Using {model_display} (General)...")
-                messages = [
-                    {"role": "system", "content": "You are the MTG Rulebook AI Judge. When users ask about you or how you work, explain that you use a Retrieval-Augmented Generation (RAG) system to search the official Magic Comprehensive Rules. Be friendly and helpful."},
-                    {"role": "user", "content": user_input}
-                ]
+                system_msg = "You are the MTG Rulebook AI Judge. When users ask about you or how you work, explain that you use a Retrieval-Augmented Generation (RAG) system to search the official Magic Comprehensive Rules. Be friendly and helpful."
                 
+                messages = [{"role": "system", "content": system_msg}]
+                # Add history
+                for i in range(0, len(history), 2):
+                    if i < len(history): messages.append({"role": "user", "content": history[i]})
+                    if i + 1 < len(history): messages.append({"role": "assistant", "content": history[i+1]})
+                messages.append({"role": "user", "content": user_input})
+
                 print("💭 Thinking...                ", end="\r")
                 response = client.chat.completions.create(
                     model=selected_model,
                     messages=messages,
                     temperature=0.7,
-                    max_tokens=500
+                    max_tokens=300
                 )
-                
-                print("\r Judge: ", end="")
-                print(response.choices[0].message.content)
-                print()
-                continue
+                final_response = response.choices[0].message.content
 
-            if intent == "off_topic":
+            elif intent == "off_topic":
                 print(f"Using {model_display} (Off-topic)...")
                 off_topic_system = """You are a strict MTG Level 3 Judge. The user asked a non-Magic question. 
                 Refuse to answer with a hilarious, ultra-short MTG tournament metaphor. 
                 (e.g. 'Warning for Outside Assistance! This is a Magic match.') 
                 CRITICAL: Max 1-2 SHORT sentences. Be extremely punchy. Use Judge terms like Warning, Game Loss, or DQ."""
                 
-                messages = [
-                    {"role": "system", "content": off_topic_system},
-                    {"role": "user", "content": user_input}
-                ]
-                
+                messages = [{"role": "system", "content": off_topic_system}]
+                # Add history
+                for i in range(0, len(history), 2):
+                    if i < len(history): messages.append({"role": "user", "content": history[i]})
+                    if i + 1 < len(history): messages.append({"role": "assistant", "content": history[i+1]})
+                messages.append({"role": "user", "content": user_input})
+
                 print("💭 Thinking...                ", end="\r")
                 response = client.chat.completions.create(
                     model=selected_model,
                     messages=messages,
                     temperature=0.7,
-                    max_tokens=40
+                    max_tokens=50
+                )
+                final_response = response.choices[0].message.content
+
+            else:
+                # RULES INTENT
+                print(f"Using {model_display}...")
+                print("🔍 Finding relevant rules...", end="\r")
+                
+                # 2. Rules Retrieval (RAG)
+                relevant_chunks = retrieve_relevant_chunks(
+                    user_input, 
+                    index_data, 
+                    embedding_model,
+                    history=history,
+                    top_k=TOP_K_CHUNKS
                 )
                 
-                print("\r Judge: ", end="")
-                print(response.choices[0].message.content)
-                print()
-                continue
+                # Build context from relevant chunks
+                context = "\n\n".join([
+                    f"[Rule {chunk['rule_num']}]\n{chunk['text']}" 
+                    for chunk in relevant_chunks
+                ])
+                
+                # System instruction with retrieved context
+                system_instruction = f"""You are an expert Magic: The Gathering Level 3 Judge with exceptional teaching skills. Your mission is to provide clear, concise, and practical answers to rules questions.
+    
+    CRITICAL: Pay extremely close attention to timing restrictions, activation costs, and conditions in the rules. Many abilities have restrictions like "Activate only as a sorcery" or "Activate only during combat" - these MUST be respected in your examples.
+    
+    RESPONSE STRUCTURE:
+    1. **Direct Answer** (1-2 sentences): Answer the question immediately and clearly.
+    2. **Key Rules** (bullet points): List only the most relevant rule citations with brief explanations. ALWAYS include timing restrictions if relevant.
+    3. **Game Example** (required): End EVERY response with a concrete, realistic game scenario that illustrates the rule in action. Use actual card names when possible. Your examples MUST follow all timing restrictions.
+    
+    STYLE GUIDELINES:
+    - Be concise but complete. Avoid unnecessary verbosity.
+    - Use simple language first, then add technical details if needed.
+    - For complex interactions, break them down step-by-step.
+    - Always cite specific rule numbers (e.g., "Rule 702.19b").
+    - **CRITICAL**: When discussing abilities, always check for and mention timing restrictions ("only as a sorcery", "only during combat", etc.)
+    - Your game examples should be vivid, help players visualize the situation, and be LEGALLY CORRECT.
+    
+    FORMAT YOUR RESPONSES LIKE THIS:
+    [Direct answer to the question]
+    
+    **Key Rules:**
+    - Rule X.Y: [brief explanation including any timing restrictions]
+    - Rule Z.W: [brief explanation]
+    
+    **Game Example:**
+    [Describe a realistic scenario with specific cards and game state that demonstrates the rule - must be legally correct]
+    
+    === RELEVANT COMPREHENSIVE RULES ===
+    {context}
+    ==========================="""
+                
+                print("💭 Thinking...                ", end="\r")
+                
+                messages = [{"role": "system", "content": system_instruction}]
+                # Add conversation history
+                for i in range(0, len(history), 2):
+                    if i < len(history): messages.append({"role": "user", "content": history[i]})
+                    if i + 1 < len(history): messages.append({"role": "assistant", "content": history[i+1]})
+                messages.append({"role": "user", "content": user_input})
+                
+                # Call Groq API
+                response = client.chat.completions.create(
+                    model=selected_model,
+                    messages=messages,
+                    temperature=0.3,
+                    max_tokens=2048
+                )
+                final_response = response.choices[0].message.content
 
-            print(f"Using {model_display}...")
-            print("🔍 Finding relevant rules...", end="\r")
-            
-            # 2. Rules Retrieval (RAG)
-            relevant_chunks = retrieve_relevant_chunks(
-                user_input, 
-                index_data, 
-                embedding_model,
-                top_k=TOP_K_CHUNKS
-            )
-            
-            # Build context from relevant chunks
-            context = "\n\n".join([
-                f"[Rule {chunk['rule_num']}]\n{chunk['text']}" 
-                for chunk in relevant_chunks
-            ])
-            
-            # System instruction with retrieved context
-            system_instruction = f"""You are an expert Magic: The Gathering Level 3 Judge with exceptional teaching skills. Your mission is to provide clear, concise, and practical answers to rules questions.
-
-CRITICAL: Pay extremely close attention to timing restrictions, activation costs, and conditions in the rules. Many abilities have restrictions like "Activate only as a sorcery" or "Activate only during combat" - these MUST be respected in your examples.
-
-RESPONSE STRUCTURE:
-1. **Direct Answer** (1-2 sentences): Answer the question immediately and clearly.
-2. **Key Rules** (bullet points): List only the most relevant rule citations with brief explanations. ALWAYS include timing restrictions if relevant.
-3. **Game Example** (required): End EVERY response with a concrete, realistic game scenario that illustrates the rule in action. Use actual card names when possible. Your examples MUST follow all timing restrictions.
-
-STYLE GUIDELINES:
-- Be concise but complete. Avoid unnecessary verbosity.
-- Use simple language first, then add technical details if needed.
-- For complex interactions, break them down step-by-step.
-- Always cite specific rule numbers (e.g., "Rule 702.19b").
-- **CRITICAL**: When discussing abilities, always check for and mention timing restrictions ("only as a sorcery", "only during combat", etc.)
-- Your game examples should be vivid, help players visualize the situation, and be LEGALLY CORRECT.
-
-FORMAT YOUR RESPONSES LIKE THIS:
-[Direct answer to the question]
-
-**Key Rules:**
-- Rule X.Y: [brief explanation including any timing restrictions]
-- Rule Z.W: [brief explanation]
-
-**Game Example:**
-[Describe a realistic scenario with specific cards and game state that demonstrates the rule - must be legally correct]
-
-=== RELEVANT COMPREHENSIVE RULES ===
-{context}
-==========================="""
-            
-            print("💭 Thinking...                ", end="\r")
-            
-            # Build messages for Groq chat completion
-            messages = []
-            
-            # Add system message
-            messages.append({
-                "role": "system",
-                "content": system_instruction
-            })
-            
-            # Add conversation history
-            for i in range(0, len(history), 2):
-                if i < len(history):
-                    messages.append({"role": "user", "content": history[i]})
-                if i + 1 < len(history):
-                    messages.append({"role": "assistant", "content": history[i + 1]})
-            
-            # Add current user input
-            messages.append({"role": "user", "content": user_input})
-            
-            # Call Groq API
-            response = client.chat.completions.create(
-                model=selected_model,
-                messages=messages,
-                temperature=0.3,  # Lower for more consistent, accurate responses
-                max_tokens=2048
-            )
-            
             # Display response
             print("\r Judge: ", end="")
-            print(response.choices[0].message.content)
+            print(final_response)
             print()
             
             # Update history (keep last 4 exchanges to maintain context)
             history.append(user_input)
-            history.append(response.choices[0].message.content)
+            history.append(final_response)
             if len(history) > 8:  # Keep last 4 Q&A pairs
                 history = history[-8:]
             
