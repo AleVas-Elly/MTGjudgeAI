@@ -1,5 +1,8 @@
 # 🔮 MTG Rulebook AI Judge
 
+> [!IMPORTANT]
+> **WORK IN PROGRESS**: This project is currently under active development. Features and documentation may change frequently.
+
 An intelligent Magic: The Gathering rules assistant powered by **Retrieval-Augmented Generation (RAG)**. This project uses Google Gemini for advanced reasoning and semantic search for high-speed, accurate rules lookup.
 
 ## 🚀 Features
