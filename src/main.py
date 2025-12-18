@@ -170,54 +170,55 @@ def retrieve_relevant_chunks(query, index_data, model, history=None, top_k=TOP_K
     relevant_chunks = [index_data['chunks'][i] for i in top_indices]
     return relevant_chunks
 
-def get_query_intent(query, last_intent=None):
+def get_query_intent(client, query, history=[], last_intent=None):
     """
-    Simple intent classifier with context awareness.
-    If the current query is very short or vague, and the last intent was 'rules',
-    it leans towards 'rules' to allow follow-ups.
+    Uses an LLM pass to classify the user's intent.
+    Returns: 'rules', 'meta', 'off_topic', or 'clarify'
     """
-    # Keywords that suggest a question about the bot/self
-    meta_keywords = [
-        'who are you', 'how do you work', 'what are you', 
-        'what can you do', 'help', 'instructions', 'commands',
-        'how does this work', 'about you', 'your name'
-    ]
+    system_prompt = f"""You are an intent classifier for an MTG Rulebook AI assistant.
+    Analyze the user's latest query and classify it into ONE of these categories:
+    - rules: A specific question about Magic: The Gathering rules, card interactions, or tournament procedures.
+    - meta: Questions about the AI bot itself, how it works, or help/instructions.
+    - off_topic: General conversation, small talk, or questions about non-Magic subjects (e.g., sports, weather, cooking).
+    - clarify: The query is MTG-related but so vague or ambiguous that you cannot determine what they are asking (e.g., just saying "What happens?" with no context, or a card name with no question). Only use this if it is UNANSWERABLE without more info.
+
+    CONTEXT SENSITIVITY:
+    - If the user uses pronouns (it, that, this, those) and the history contains an MTG topic, classify as 'rules'.
+    - If the user explicitly changes the subject (e.g., "Enough about Magic, what's the weather?"), classify as 'off_topic'.
+    - Prioritize the CURRENT query over the history.
+
+    Return ONLY a single word: rules, meta, off_topic, or clarify. No explanation.
+    """
     
-    q_lower = query.lower().strip()
+    messages = [{"role": "system", "content": system_prompt}]
     
-    # Check for meta intent
-    for keyword in meta_keywords:
-        if keyword in q_lower:
-            return "meta"
-            
-    # Keywords that suggest a question about Magic rules
-    mtg_keywords = [
-        'spell', 'cast', 'combat', 'creature', 'artifact', 'enchantment', 
-        'land', 'graveyard', 'library', 'hand', 'exile', 'stack', 
-        'priority', 'turn', 'phase', 'step', 'damage', 'life', 'counter', 
-        'win', 'lose', 'commander', 'rule', 'trigger', 'ability', 'mana', 
-        'tap', 'untap', 'block', 'attack', 'layer', 'state-based', 'effect', 
-        'player', 'token', 'copy', 'protection', 'indestructible', 'flying',
-        'cascade', 'scry', 'draw', 'discard', 'hand size', 'poison', 'planeswalker',
-        'assistance', 'outside', 'infraction', 'penalty', 'warning', 'judge',
-        'tournament', 'match', 'game state', 'interact', 'interaction',
-        'explain', 'card', 'how', 'what', 'does', 'if', 'tell', 'about', 'who'
-    ]
+    # Include history for context
+    if history:
+        # Format history as a simple string to save tokens
+        hist_str = ""
+        for i in range(0, len(history), 2):
+            if i < len(history): hist_str += f"User: {history[i]}\n"
+            if i+1 < len(history): hist_str += f"Assistant: {history[i+1][:100]}...\n"
+        messages.append({"role": "user", "content": f"CONVERSATION HISTORY:\n{hist_str}"})
     
-    # Check for MTG terms
-    for keyword in mtg_keywords:
-        if keyword in q_lower:
-            return "rules"
-            
-    # Context-aware follow-ups: if it's a follow-up-style question and the last intent was rules/meta, keep it
-    follow_up_starters = ['how', 'what', 'and', 'why', 'can', 'does', 'if']
-    is_follow_up = any(q_lower.startswith(s) for s in follow_up_starters)
+    messages.append({"role": "user", "content": f"CURRENT QUERY: {query}"})
     
-    if (len(q_lower.split()) <= 12 or is_follow_up) and last_intent in ["rules", "meta"]:
-        return last_intent
+    try:
+        response = client.chat.completions.create(
+            model=NORMAL_MODEL,
+            messages=messages,
+            temperature=0,
+            max_tokens=10
+        )
+        prediction = response.choices[0].message.content.lower().strip()
+        # Clean up any punctuation
+        prediction = "".join(c for c in prediction if c.isalpha())
         
-    # Default to off-topic if no keywords found and not a clear follow-up
-    return "off_topic"
+        if prediction in ["rules", "meta", "off_topic", "clarify"]:
+            return prediction
+        return "off_topic" # Safe default
+    except:
+        return "rules" # Use RAG as fallback to be safe
 
 
 def main():
@@ -267,7 +268,7 @@ def main():
             model_display = "Smart (70B) 🧠" if choice == '2' else "Normal (8B) ⚡"
             
             # 1. Intent Classification
-            intent = get_query_intent(user_input, last_intent=last_intent)
+            intent = get_query_intent(client, user_input, history=history, last_intent=last_intent)
             last_intent = intent
             
             final_response = ""
@@ -294,6 +295,7 @@ def main():
 
             elif intent == "off_topic":
                 print(f"Using {model_display} (Off-topic)...")
+                # ... rest of off-topic ...
                 off_topic_system = """You are a strict MTG Level 3 Judge. The user asked a non-Magic question. 
                 Refuse to answer with a hilarious, ultra-short MTG tournament metaphor. 
                 (e.g. 'Warning for Outside Assistance! This is a Magic match.') 
@@ -312,6 +314,28 @@ def main():
                     messages=messages,
                     temperature=0.7,
                     max_tokens=50
+                )
+                final_response = response.choices[0].message.content
+
+            elif intent == "clarify":
+                print(f"Using {model_display} (Clarification)...")
+                clarify_system = """You are an MTG Level 3 Judge. The user's question is MTG-related but too vague, ambiguous, or lacks context (e.g. they said "what happens?" but didn't name a card or situation).
+                Politely ask the user for the specific details you need to provide an accurate ruling. 
+                Be professional and helpful. Max 2 sentences."""
+                
+                messages = [{"role": "system", "content": clarify_system}]
+                # Add history
+                for i in range(0, len(history), 2):
+                    if i < len(history): messages.append({"role": "user", "content": history[i]})
+                    if i + 1 < len(history): messages.append({"role": "assistant", "content": history[i+1]})
+                messages.append({"role": "user", "content": user_input})
+
+                print("💭 Thinking...                ", end="\r")
+                response = client.chat.completions.create(
+                    model=selected_model,
+                    messages=messages,
+                    temperature=0.5,
+                    max_tokens=150
                 )
                 final_response = response.choices[0].message.content
 
