@@ -170,7 +170,7 @@ FORMAT YOUR RESPONSES LIKE THIS:
             contents = [system_instruction] + history + [user_input]
             
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-1.5-flash',  # Using 1.5 for higher free tier quota
                 contents=contents,
                 config={'response_modalities': ['TEXT']}
             )

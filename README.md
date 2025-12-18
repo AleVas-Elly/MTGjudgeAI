@@ -21,7 +21,7 @@ Based on recent load tests using 10 complex MTG rules questions:
 - **Recommended Speed**: 5 RPM (to stay within free tier rate limits).
 
 > [!NOTE]
-> This project uses **Gemini 2.5 Flash**, which offers "Adaptive Thinking" and improved accuracy over version 1.5. If you hit rate limits frequently, the application is designed to handle ~5 requests per minute.
+> This project uses **Gemini 1.5 Flash** by default for higher free tier quotas (1500 requests/day). While Gemini 2.5 Flash offers improved accuracy, it has a much lower daily limit (20 requests/day). You can switch between models by editing the `model` parameter in `src/main.py`.
 
 ## 🛠️ Architecture
 
