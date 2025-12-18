@@ -46,24 +46,42 @@ The system operates in two main phases:
 
 1. **Clone the repository**:
    ```bash
-   git clone <your-repo-url>
-   cd "MTG Rulebook"
+   git clone https://github.com/AleVas-Elly/MTGjudgeAI.git
+   cd MTGjudgeAI
    ```
 
-2. **Install dependencies**:
+2. **Create and activate a virtual environment** (recommended):
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On macOS/Linux
+   # OR
+   venv\Scripts\activate  # On Windows
+   ```
+
+3. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Initialize the rules index**:
-   *Ensure you have `data/MagicCompRules.txt` in the project root.*
+4. **Add the MTG Comprehensive Rules**:
+   - Download `MagicCompRules.txt` from [Wizards of the Coast](https://magic.wizards.com/en/rules)
+   - Place it in the `data/` folder (the folder will be created automatically)
+
+5. **Initialize the rules index**:
    ```bash
    python src/indexer.py
    ```
 
 ## 🎮 Usage
 
-Run the main application:
+**Important**: Always activate the virtual environment before running the app:
+```bash
+source venv/bin/activate  # On macOS/Linux
+# OR
+venv\Scripts\activate  # On Windows
+```
+
+Then run the main application:
 ```bash
 python src/main.py
 ```
