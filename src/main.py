@@ -132,6 +132,41 @@ def fetch_scryfall_data(card_names):
             
     return card_data
 
+def fetch_card_versions(card_name):
+    """
+    Fetches all unique prints of a card from Scryfall Search API.
+    Returns: list of dicts with printing details.
+    """
+    versions = []
+    # Search for exactly this card name, reporting all unique prints
+    query = f'!"{card_name}"'
+    url = "https://api.scryfall.com/cards/search"
+    params = {
+        "q": query,
+        "unique": "prints",
+        "order": "released",
+        "dir": "asc"
+    }
+    
+    try:
+        resp = requests.get(url, params=params)
+        if resp.status_code != 200:
+            return []
+        
+        data = resp.json()
+        for item in data.get("data", [])[:30]: # Limit to 30 versions to avoid token bloat
+            versions.append({
+                "set_name": item.get("set_name"),
+                "released_at": item.get("released_at"),
+                "collector_number": item.get("collector_number"),
+                "artist": item.get("artist"),
+                "price_eur": item.get("prices", {}).get("eur", "N/A")
+            })
+    except:
+        pass
+        
+    return versions
+
 def load_index():
     """Load the pre-computed rulebook index."""
     if not os.path.exists(INDEX_PATH):
@@ -178,9 +213,18 @@ def get_query_intent(client, query, history=[], last_intent=None):
     system_prompt = f"""You are an intent classifier for an MTG Rulebook AI assistant.
     Analyze the user's latest query and classify it into ONE of these categories:
     - rules: A specific question about Magic: The Gathering rules, card interactions, or tournament procedures.
+    - versions: Requests to see all printings, sets, versions, or prices of a specific card.
     - meta: Questions about the AI bot itself, how it works, or help/instructions.
-    - off_topic: General conversation, small talk, or questions about non-Magic subjects (e.g., sports, weather, cooking).
-    - clarify: The query is MTG-related but so vague or ambiguous that you cannot determine what they are asking (e.g., just saying "What happens?" with no context, or a card name with no question). Only use this if it is UNANSWERABLE without more info.
+    - off_topic: General conversation, small talk, or questions about non-Magic subjects.
+    - clarify: The query is MTG-related but too vague.
+
+    EXAMPLES:
+    - "What is the penalty for slow play?" -> rules
+    - "Show me all versions of Lightning Bolt" -> versions
+    - "How much is Murktide Regent?" -> versions
+    - "Wait, what sets was Black Lotus in?" -> versions
+    - "Tell me about yourself" -> meta
+    - "What's the best pizza?" -> off_topic
 
     CONTEXT SENSITIVITY:
     - If the user uses pronouns (it, that, this, those) and the history contains an MTG topic, classify as 'rules'.
@@ -214,7 +258,7 @@ def get_query_intent(client, query, history=[], last_intent=None):
         # Clean up any punctuation
         prediction = "".join(c for c in prediction if c.isalpha())
         
-        if prediction in ["rules", "meta", "off_topic", "clarify"]:
+        if prediction in ["rules", "meta", "off_topic", "clarify", "versions"]:
             return prediction
         return "off_topic" # Safe default
     except:
@@ -339,8 +383,47 @@ def main():
                 )
                 final_response = response.choices[0].message.content
 
-            else:
-                # RULES INTENT
+            elif intent == "versions":
+                print(f"Using {model_display} (History)...")
+                print("🔍 Searching all card versions...", end="\r")
+                
+                # Identify the card name first
+                potential_cards = extract_card_names(client, user_input, history=history)
+                if not potential_cards:
+                    # Fallback to rules if extraction fails
+                    intent = "rules" 
+                else:
+                    card_name = potential_cards[0] # Use the primary card
+                    versions_data = fetch_card_versions(card_name)
+                    
+                    if not versions_data:
+                        final_response = f"I couldn't find any historical printings for '{card_name}' on Scryfall."
+                    else:
+                        # Build a formatting prompt
+                        version_context = f"All versions of {card_name}:\n"
+                        for v in versions_data:
+                            version_context += f"- Set: {v['set_name']} ({v['released_at'][:4]}) | No. {v['collector_number']} | Artist: {v['artist']} | Price: {v['price_eur']}€\n"
+                        
+                        system_msg = """You are an MTG Historian. The user wants a list of all versions of a card.
+                        Format the provided data into a clean, easy-to-read list or table.
+                        Include the Set Name, Year, Collector Number, Artist, and Price in Euro.
+                        Be professional and concise."""
+                        
+                        messages = [
+                            {"role": "system", "content": system_msg},
+                            {"role": "user", "content": version_context}
+                        ]
+                        
+                        print("💭 Formatting response...      ", end="\r")
+                        response = client.chat.completions.create(
+                            model=selected_model,
+                            messages=messages,
+                            temperature=0.3,
+                            max_tokens=1000
+                        )
+                        final_response = response.choices[0].message.content
+
+            elif intent == "rules":
                 print(f"Using {model_display}...")
                 
                 # 2. Card Name Extraction & Scryfall Fetch
