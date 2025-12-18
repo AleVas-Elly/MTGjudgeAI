@@ -12,20 +12,39 @@ from dotenv import load_dotenv
 SERVICE_NAME = "mtg_rulebook_ai"
 USERNAME = "groq_api_key"
 INDEX_PATH = 'data/rulebook_index.pkl'
-TOP_K_CHUNKS = 50
+TOP_K_CHUNKS = 10
 
-# Testing Questions
+# Testing Questions (20 varied and complex MTG questions)
 QUESTIONS = [
-    "What happens if I cast a spell with cascade and I hit a spell with X in its cost?",
-    "Can I use a fetch land to find a Triome?",
-    "How does Layer 7 work with Humility and Giant Growth?",
-    "If I have Teferi, Time Raveler, can my opponent cast spells with Flash during my turn?",
-    "What is the interaction between Blood Moon and Urza's Saga?",
-    "Does Deathtouch work with Trample?",
+    # General Rules
     "How many poison counters does a player need to lose the game?",
-    "Can I counter a spell that says it can't be countered with a spell that exiles it?",
+    "What happens if a player is required to draw a card but their library is empty?",
+    "What is the starting life total for a game of Commander?",
+    
+    # Combat & Keywords
+    "Does Deathtouch work with Trample? Describe the interaction.",
+    "If a creature with Lifelink is blocked by multiple creatures, does it gain life for each damage dealt?",
+    "Explain the interaction between Vigilance and an effect that says 'Tap all attacking creatures'.",
+    
+    # Interactions & Layers
+    "How does Layer 7 work with Humility and Giant Growth?",
+    "What is the interaction between Blood Moon and Urza's Saga?",
+    "If I have Teferi, Time Raveler, can my opponent cast spells with Flash during my turn?",
+    "What happens if I cast a spell with cascade and I hit a spell with X in its cost?",
+    
+    # Commander Specific
+    "Can I use a fetch land to find a Triome in a Commander game if my Commander doesn't have all those colors?",
+    "If my Commander is exiled, can I put it back into the Command Zone?",
+    
+    # Complex Scenarios
     "If I have a Doubling Season, how many loyalty counters does a Planeswalker enter with?",
-    "What happens if I control two copies of the same Legendary creature?"
+    "What happens if I control two copies of the same Legendary creature?",
+    "Can I counter a spell that says it can't be countered with a spell that exiles it?",
+    "Explain the interaction between Panglacial Wurm and Selvala, Explorer Returned.",
+    "If I cast a spell with Storm and it gets countered, do the copies still go on the stack?",
+    "What happens if I use Phasing on a creature attached with an Equipment?",
+    "If I control a Chalice of the Void with 1 counter, and my opponent casts an overloaded Cyclonic Rift, is it countered?",
+    "Explain how Initiative works in a multiplayer game if the current leader leaves the game."
 ]
 
 def get_api_key():
@@ -67,8 +86,8 @@ def run_test():
     results = []
     start_test_time = time.time()
     
-    for i, question in enumerate(QUESTIONS): # Test all 10 questions
-        print(f"[{i+1}/10] Processing: {question[:50]}...")
+    for i, question in enumerate(QUESTIONS): # Test all questions
+        print(f"[{i+1}/{len(QUESTIONS)}] Processing: {question[:50]}...")
         
         start_time = time.time()
         try:
@@ -93,8 +112,9 @@ def run_test():
             results.append(duration)
             print(f"   ✅ Done in {duration:.2f}s")
             
-            # Small delay just to be safe
-            time.sleep(1)
+            # Stay within TPM limit - 3s delay between requests
+            if i < len(QUESTIONS) - 1:
+                time.sleep(3)
             
         except Exception as e:
             print(f"   ❌ Error: {e}")
