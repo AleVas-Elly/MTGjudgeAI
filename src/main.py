@@ -191,11 +191,10 @@ def main():
 
             if intent == "off_topic":
                 print(f"Using {model_display} (Off-topic)...")
-                off_topic_system = """You are a strict and humorous Magic: The Gathering Level 3 Judge. 
-                The user has asked a question completely unrelated to Magic rules. 
-                Refuse to answer in a creative, funny way using MTG tournament lingo 
-                (e.g., Warnings, Game Losses, DQ, Outside Assistance, Slow Play, the Stack, etc.). 
-                Do NOT answer their original question. Be concise and stay in character."""
+                off_topic_system = """You are a strict MTG Level 3 Judge. The user asked a non-Magic question. 
+                Refuse to answer with a hilarious, ultra-short MTG tournament metaphor. 
+                (e.g. 'Warning for Outside Assistance! This is a Magic match.') 
+                CRITICAL: Max 1-2 SHORT sentences. Be extremely punchy. Use Judge terms like Warning, Game Loss, or DQ."""
                 
                 messages = [
                     {"role": "system", "content": off_topic_system},
@@ -206,8 +205,8 @@ def main():
                 response = client.chat.completions.create(
                     model=selected_model,
                     messages=messages,
-                    temperature=0.8,
-                    max_tokens=200
+                    temperature=0.7,
+                    max_tokens=40
                 )
                 
                 print("\r Judge: ", end="")
