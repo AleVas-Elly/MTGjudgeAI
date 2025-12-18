@@ -10,6 +10,7 @@ BR_FILE = os.path.join(DATA_DIR, "banned_restricted.json")
 # API Configuration
 SERVICE_NAME = "mtg_rulebook_ai"
 USERNAME = "groq_api_key"
+RULES_DOWNLOAD_URL = "https://media.wizards.com/2025/downloads/MagicCompRules%2020251114.txt"
 SCRTYFALL_NAMED_URL = "https://api.scryfall.com/cards/named"
 SCRTYFALL_SEARCH_URL = "https://api.scryfall.com/cards/search"
 BR_URL = "https://magic.wizards.com/en/banned-restricted-list"

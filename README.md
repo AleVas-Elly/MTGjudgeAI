@@ -1,5 +1,8 @@
 # 🔮 MTG Rulebook AI Judge
 
+> [!IMPORTANT]
+> **WORK IN PROGRESS**: This project is currently under active development. Features and documentation may change frequently.
+
 An intelligent Magic: The Gathering rules assistant powered by **Retrieval-Augmented Generation (RAG)**. This project uses **Groq (Llama 3.3 70B)** for state-of-the-art reasoning and a semantic vector index for high-speed, accurate rules lookup.
 
 ## 🚀 Features
@@ -42,10 +45,9 @@ The project follows a modular architecture for better maintainability:
    pip install -r requirements.txt
    ```
 
-2. **Prepare Data**:
-   - Place `MagicCompRules.txt` in the `data/` folder.
-   - Run the indexer: `python -m src.indexer`
-   - Sync the B&R list: `python -m src.br_updater`
+2. **Initialize Data**:
+   - Run the automated setup: `python -m src.data_setup`
+   - This will download the latest official rules, build the vector index, and sync the B&R list.
 
 3. **Launch**:
    ```bash
