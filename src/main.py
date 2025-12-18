@@ -16,6 +16,8 @@ INDEX_PATH = 'data/rulebook_index.pkl'
 SERVICE_NAME = "mtg_rulebook_ai"
 USERNAME = "groq_api_key"
 TOP_K_CHUNKS = 10  # Reduced to stay within Groq's 12,000 TPM limit
+SMART_MODEL = "llama-3.3-70b-versatile"
+NORMAL_MODEL = "llama-3.1-8b-instant"
 
 def ensure_directories():
     """Create necessary directories if they don't exist."""
@@ -117,6 +119,16 @@ def main():
             if not user_input.strip():
                 continue
 
+            # Model Selection
+            print("\n🧠 Brain Level for this question?")
+            print("[1] Normal (8B) - Fast & Saves quota")
+            print("[2] Smart (70B) - Deep reasoning for complex rules")
+            choice = input("Choice (1 or 2, default=1): ").strip()
+            
+            selected_model = SMART_MODEL if choice == '2' else NORMAL_MODEL
+            model_display = "Smart (70B) 🧠" if choice == '2' else "Normal (8B) ⚡"
+            
+            print(f"Using {model_display}...")
             print("🔍 Finding relevant rules...", end="\r")
             
             # Retrieve relevant chunks
@@ -188,7 +200,7 @@ FORMAT YOUR RESPONSES LIKE THIS:
             
             # Call Groq API
             response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",  # Most intelligent Groq model
+                model=selected_model,
                 messages=messages,
                 temperature=0.3,  # Lower for more consistent, accurate responses
                 max_tokens=2048

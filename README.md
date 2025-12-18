@@ -11,7 +11,8 @@ An intelligent Magic: The Gathering rules assistant powered by **Retrieval-Augme
 - **RAG Architecture**: Processes the entire Comprehensive Ruleset by indexing it into semantic chunks, allowing for fast and relevant context retrieval.
 - **Vivid Game Examples**: Every answer includes a concrete game scenario with specific card names to illustrate the rules.
 - **System Keychain Integration**: Securely stores your Groq API key using `keyring`.
-- **High Throughput**: Capable of ~60+ Questions Per Minute (QPM) while maintaining more than good accuracy via Llama 3.3 70B.
+- **Dual-Mode Intelligence**: Choose between a fast 'Normal' brain (8B) for simple queries and an 'Elite' smart brain (70B) for complex rules interactions.
+- **High Throughput**: Capable of ~60+ Questions Per Minute (QPM) on the 8B model.
 
 ## 📊 Performance & Limits
 
@@ -21,7 +22,9 @@ Based on tests using Groq's high-speed inference:
 - **Recommended Speed**: Stay within Groq's free tier RPM (Rate Per Minute) limits.
 
 > [!NOTE]
-> This project uses **Llama 3.3 70B** via Groq, which offers GPT-4 level intelligence with a much higher free quota than Gemini's tiered system.
+> This project now features **Dual-Mode Selection**:
+> - **Normal (8B)**: Llama 3.1 8B Instant. Lightning fast and has a high daily quota. Perfect for 90% of MTG questions.
+> - **Smart (70B)**: Llama 3.3 70B Versatile. GPT-4 level intelligence for the most complex "Layer" or interaction questions. Limited by a daily quota on the free tier.
 
 ## 🛠️ Architecture
 
