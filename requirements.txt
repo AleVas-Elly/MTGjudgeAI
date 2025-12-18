@@ -4,3 +4,4 @@ keyring
 sentence-transformers
 numpy
 requests
+beautifulsoup4
