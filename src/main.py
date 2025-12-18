@@ -1,4 +1,5 @@
 import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 import sys
 import keyring
 import pickle
@@ -14,7 +15,7 @@ RULEBOOK_PATH = 'data/MagicCompRules.txt'
 INDEX_PATH = 'data/rulebook_index.pkl'
 SERVICE_NAME = "mtg_rulebook_ai"
 USERNAME = "groq_api_key"
-TOP_K_CHUNKS = 50  # Retrieve top 50 most relevant chunks (~40-50k tokens)
+TOP_K_CHUNKS = 10  # Reduced to stay within Groq's 12,000 TPM limit
 
 def ensure_directories():
     """Create necessary directories if they don't exist."""
