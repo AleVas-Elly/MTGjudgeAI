@@ -83,6 +83,32 @@ def retrieve_relevant_chunks(query, index_data, model, top_k=TOP_K_CHUNKS):
     relevant_chunks = [index_data['chunks'][i] for i in top_indices]
     return relevant_chunks
 
+def get_query_intent(query):
+    """
+    Very simple intent classifier to distinguish between MTG rules 
+    and questions about the bot itself (meta questions).
+    """
+    # Keywords that suggest a question about the bot/self
+    meta_keywords = [
+        'who are you', 'how do you work', 'what are you', 
+        'what can you do', 'help', 'instructions', 'commands',
+        'how does this work', 'about you', 'your name'
+    ]
+    
+    q_lower = query.lower().strip()
+    
+    # Check for exact matches or high-likelihood keywords
+    for keyword in meta_keywords:
+        if keyword in q_lower:
+            return "meta"
+            
+    # Heuristic: short greetings are often followed by meta questions
+    greetings = ['hi', 'hello', 'hey']
+    if q_lower in greetings:
+        return "meta"
+        
+    return "rules"
+
 def main():
     print("🔮 MTG Rulebook AI Judge (RAG Edition) 🔮")
     print("------------------------------------------")
@@ -128,10 +154,33 @@ def main():
             selected_model = SMART_MODEL if choice == '2' else NORMAL_MODEL
             model_display = "Smart (70B) 🧠" if choice == '2' else "Normal (8B) ⚡"
             
+            # 1. Intent Classification
+            intent = get_query_intent(user_input)
+            
+            if intent == "meta":
+                print(f"Using {model_display} (General)...")
+                messages = [
+                    {"role": "system", "content": "You are the MTG Rulebook AI Judge. When users ask about you or how you work, explain that you use a Retrieval-Augmented Generation (RAG) system to search the official Magic Comprehensive Rules. Be friendly and helpful."},
+                    {"role": "user", "content": user_input}
+                ]
+                
+                print("💭 Thinking...                ", end="\r")
+                response = client.chat.completions.create(
+                    model=selected_model,
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=500
+                )
+                
+                print("\r Judge: ", end="")
+                print(response.choices[0].message.content)
+                print()
+                continue
+
             print(f"Using {model_display}...")
             print("🔍 Finding relevant rules...", end="\r")
             
-            # Retrieve relevant chunks
+            # 2. Rules Retrieval (RAG)
             relevant_chunks = retrieve_relevant_chunks(
                 user_input, 
                 index_data, 
