@@ -62,9 +62,14 @@ def extract_card_names(client, user_input, history=[]):
     """
     system_prompt = """You are a MTG card name extractor.
     Identify any potential Magic: The Gathering card names in the user's message.
-    Return ONLY a JSON list of strings (e.g. ["Blood Moon", "Urza's Saga"]).
-    If no cards are found, return [].
-    Do not explain anything."""
+    
+    CRITICAL RULES:
+    1. Return ONLY the base card name as it appears on the card.
+    2. Handle short or common names correctly (e.g. "Fury", "Fire", "Ice").
+    3. NEVER add descriptive suffixes.
+    4. Return ONLY a JSON list of strings (e.g. ["Blood Moon", "Urza's Saga"]).
+    5. If no cards are found, return [].
+    6. Do not explain anything."""
     
     messages = [{"role": "system", "content": system_prompt}]
     # Optional: add history for context, but keep it minimal to save tokens
@@ -80,13 +85,15 @@ def extract_card_names(client, user_input, history=[]):
             max_tokens=100
         )
         content = response.choices[0].message.content.strip()
-        # Clean up any markdown code blocks
-        if "```" in content:
-            content = content.split("```")[1].replace("json", "").strip()
+        # Aggressive JSON cleaning: Find the first [ and last ]
+        if "[" in content and "]" in content:
+            start = content.find("[")
+            end = content.rfind("]") + 1
+            content = content[start:end]
         
         cards = json.loads(content)
         return list(set(cards)) # Unique names only
-    except:
+    except Exception as e:
         return []
 
 def fetch_scryfall_data(card_names):
@@ -134,11 +141,9 @@ def fetch_scryfall_data(card_names):
 
 def fetch_card_versions(card_name):
     """
-    Fetches all unique prints of a card from Scryfall Search API.
-    Returns: list of dicts with printing details.
+    Fetches all unique prints of a card from Scryfall Search API with comprehensive data.
     """
     versions = []
-    # Search for exactly this card name, reporting all unique prints
     query = f'!"{card_name}"'
     url = "https://api.scryfall.com/cards/search"
     params = {
@@ -154,16 +159,30 @@ def fetch_card_versions(card_name):
             return []
         
         data = resp.json()
-        for item in data.get("data", [])[:30]: # Limit to 30 versions to avoid token bloat
+        for item in data.get("data", [])[:25]: # Limit to 25 versions for safety
+            prices = item.get("prices", {})
+            # Summarize legalities to save tokens
+            legals = [f"{fmt}:{stat}" for fmt, stat in item.get("legalities", {}).items() if stat != "not_legal"]
+            
             versions.append({
                 "set_name": item.get("set_name"),
+                "set": item.get("set").upper(),
                 "released_at": item.get("released_at"),
                 "collector_number": item.get("collector_number"),
+                "rarity": item.get("rarity").capitalize(),
                 "artist": item.get("artist"),
-                "price_eur": item.get("prices", {}).get("eur", "N/A")
+                "finishes": item.get("finishes", []),
+                "prices": {
+                    "eur": prices.get("eur", "N/A"),
+                    "eur_foil": prices.get("eur_foil", "N/A"),
+                    "usd": prices.get("usd", "N/A"),
+                    "usd_foil": prices.get("usd_foil", "N/A"),
+                    "tix": prices.get("tix", "N/A")
+                },
+                "legalities": ", ".join(legals)
             })
-    except:
-        pass
+    except Exception as e:
+        print(f"⚠️ Error fetching versions: {e}")
         
     return versions
 
@@ -213,7 +232,7 @@ def get_query_intent(client, query, history=[], last_intent=None):
     system_prompt = f"""You are an intent classifier for an MTG Rulebook AI assistant.
     Analyze the user's latest query and classify it into ONE of these categories:
     - rules: A specific question about Magic: The Gathering rules, card interactions, or tournament procedures.
-    - versions: Requests to see all printings, sets, versions, or prices of a specific card.
+    - versions: Requests to see historical printings, sets, versions, prices, rarities, or format legality (Banned/Legal) of a specific card.
     - meta: Questions about the AI bot itself, how it works, or help/instructions.
     - off_topic: General conversation, small talk, or questions about non-Magic subjects.
     - clarify: The query is MTG-related but too vague.
@@ -222,7 +241,8 @@ def get_query_intent(client, query, history=[], last_intent=None):
     - "What is the penalty for slow play?" -> rules
     - "Show me all versions of Lightning Bolt" -> versions
     - "How much is Murktide Regent?" -> versions
-    - "Wait, what sets was Black Lotus in?" -> versions
+    - "Is Fury banned in Modern?" -> versions
+    - "List the printings of Black Lotus and where I can play it" -> versions
     - "Tell me about yourself" -> meta
     - "What's the best pizza?" -> off_topic
 
@@ -319,7 +339,13 @@ def main():
             
             if intent == "meta":
                 print(f"Using {model_display} (General)...")
-                system_msg = "You are the MTG Rulebook AI Judge. When users ask about you or how you work, explain that you use a Retrieval-Augmented Generation (RAG) system to search the official Magic Comprehensive Rules. Be friendly and helpful."
+                system_msg = """You are the MTG Rulebook AI Judge. When users ask about you or how you work, focus on your capabilities:
+                1. I can answer complex Magic rules questions with official citations.
+                2. I can list all historical versions and printings of any card.
+                3. I can provide real-time market pricing in EUR, USD, and TIX from Scryfall.
+                4. I can check format legality (Standard, Modern, etc.) when asked.
+                
+                Be friendly and helpful. Focus on what the user can ask you to do. Avoid technical jargon like 'RAG'."""
                 
                 messages = [{"role": "system", "content": system_msg}]
                 # Add history
@@ -340,10 +366,11 @@ def main():
             elif intent == "off_topic":
                 print(f"Using {model_display} (Off-topic)...")
                 # ... rest of off-topic ...
-                off_topic_system = """You are a strict MTG Level 3 Judge. The user asked a non-Magic question. 
-                Refuse to answer with a hilarious, ultra-short MTG tournament metaphor. 
-                (e.g. 'Warning for Outside Assistance! This is a Magic match.') 
-                CRITICAL: Max 1-2 SHORT sentences. Be extremely punchy. Use Judge terms like Warning, Game Loss, or DQ."""
+                off_topic_system = """You are a strict yet clever MTG Level 3 Judge. The user asked a non-Magic question.
+                Refuse to answer with a smart, slightly jokish response that uses a clever MTG metaphor or basic ruling reference.
+                CRITICAL: Always explicitly state that you are an MTG-focused tool and cannot answer anything else.
+                Keep it ultra-short and punchy (max 1-2 sentences). 
+                Example tone: "This query is outside the Comprehensive Rules. I'm here to help you with Magic rules, not [user topic]. Please keep into Magic info!" or "I can't give you a ruling on that; it's not a legal Magic interaction. My expertise is strictly limited to MTG rules and card data." """
                 
                 messages = [{"role": "system", "content": off_topic_system}]
                 # Add history
@@ -363,9 +390,9 @@ def main():
 
             elif intent == "clarify":
                 print(f"Using {model_display} (Clarification)...")
-                clarify_system = """You are an MTG Level 3 Judge. The user's question is MTG-related but too vague, ambiguous, or lacks context (e.g. they said "what happens?" but didn't name a card or situation).
-                Politely ask the user for the specific details you need to provide an accurate ruling. 
-                Be professional and helpful. Max 2 sentences."""
+                clarify_system = """You are an MTG Level 3 Judge. The user's question is MTG-related but too vague or lacks context.
+                Politely ask for the specific details needed (e.g., name the specific cards involved, describe the game state, or specify the phase of the turn).
+                Maintain a professional Judge persona. Max 2 sentences."""
                 
                 messages = [{"role": "system", "content": clarify_system}]
                 # Add history
@@ -399,31 +426,40 @@ def main():
                     if not versions_data:
                         final_response = f"I couldn't find any historical printings for '{card_name}' on Scryfall."
                     else:
-                        # Build a formatting prompt
-                        version_context = f"All versions of {card_name}:\n"
+                        # Build a formatting prompt with rich data
+                        version_context = f"COMPREHENSIVE DATA FOR: {card_name}\n\n"
                         for v in versions_data:
-                            version_context += f"- Set: {v['set_name']} ({v['released_at'][:4]}) | No. {v['collector_number']} | Artist: {v['artist']} | Price: {v['price_eur']}€\n"
+                            version_context += f"--- {v['set_name']} ({v['set']}) ---\n"
+                            version_context += f"- Released: {v['released_at']} | No: {v['collector_number']} | Rarity: {v['rarity']}\n"
+                            version_context += f"- Artist: {v['artist']} | Finishes: {', '.join(v['finishes'])}\n"
+                            version_context += f"- Prices: EUR: {v['prices']['eur']}€, EUR Foil: {v['prices']['eur_foil']}€, USD: ${v['prices']['usd']}, USD Foil: ${v['prices']['usd_foil']}, TIX: {v['prices']['tix']}\n"
+                            version_context += f"- Legalities: {v['legalities']}\n\n"
                         
-                        system_msg = """You are an MTG Historian. The user wants a list of all versions of a card.
-                        Format the provided data into a clean, easy-to-read list or table.
-                        Include the Set Name, Year, Collector Number, Artist, and Price in Euro.
-                        Be professional and concise."""
+                        system_msg = """You are an MTG Historian and Market Analyst. The user wants a detailed report on all versions of a card.
+                        
+                        1. **Formatting**: Create a clean, professional report or table. 
+                        2. **Pricing**: Display prices in EUR (€), USD ($), and TIX. Use 'N/A' if missing. Do NOT hallucinate prices if they are missing from the data.
+                        3. **Metadata**: Include Set Name, Set Code, Year, Collector Number, Rarity, Artist, and Finishes (Foil/Nonfoil).
+                        4. **LEGALITY POLICY**: ONLY include format legality (Standard, Modern, Commander, etc.) if the user's query specifically asks about it (e.g. "is it legal?", "where can I play this?", "is it banned?"). Otherwise, OMIT legality info to keep the report concise.
+                        
+                        If the card data is incomplete or missing, explain it from the perspective of a Judge who cannot find the official record, maintaining a professional and immersive tone."""
                         
                         messages = [
                             {"role": "system", "content": system_msg},
-                            {"role": "user", "content": version_context}
+                            {"role": "user", "content": f"USER QUERY: {user_input}\n\nDATA:\n{version_context}"}
                         ]
                         
-                        print("💭 Formatting response...      ", end="\r")
+                        print("💭 Formatting card dossier...      ", end="\r")
                         response = client.chat.completions.create(
                             model=selected_model,
                             messages=messages,
                             temperature=0.3,
-                            max_tokens=1000
+                            max_tokens=1500
                         )
                         final_response = response.choices[0].message.content
 
-            elif intent == "rules":
+            # 5. Rules Intent (Separate IF to allow fallback from versions)
+            if intent == "rules" and not final_response:
                 print(f"Using {model_display}...")
                 
                 # 2. Card Name Extraction & Scryfall Fetch
