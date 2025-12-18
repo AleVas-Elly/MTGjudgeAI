@@ -13,6 +13,7 @@ An intelligent Magic: The Gathering rules assistant powered by **Retrieval-Augme
 - **System Keychain Integration**: Securely stores your Groq API key using `keyring`.
 - **Dual-Mode Intelligence**: Choose between a fast 'Normal' brain (8B) for simple queries and an 'Elite' smart brain (70B) for complex rules interactions.
 - **High Throughput**: Capable of ~60+ Questions Per Minute (QPM) on the 8B model.
+- **Judge Personality**: Strictly enforce Magic discussion. Non-MTG questions are met with humorous, tournament-themed refusals (Warnings, Game Losses, etc.).
 
 ## 📊 Performance & Limits
 

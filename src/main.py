@@ -102,12 +102,24 @@ def get_query_intent(query):
         if keyword in q_lower:
             return "meta"
             
-    # Heuristic: short greetings are often followed by meta questions
-    greetings = ['hi', 'hello', 'hey']
-    if q_lower in greetings:
-        return "meta"
-        
-    return "rules"
+    # Keywords that suggest a question about Magic rules
+    mtg_keywords = [
+        'spell', 'cast', 'combat', 'creature', 'artifact', 'enchantment', 
+        'land', 'graveyard', 'library', 'hand', 'exile', 'stack', 
+        'priority', 'turn', 'phase', 'step', 'damage', 'life', 'counter', 
+        'win', 'lose', 'commander', 'rule', 'trigger', 'ability', 'mana', 
+        'tap', 'untap', 'block', 'attack', 'layer', 'state-based', 'effect', 
+        'player', 'token', 'copy', 'protection', 'indestructible', 'flying',
+        'cascade', 'scry', 'draw', 'discard', 'hand size', 'poison', 'planeswalker'
+    ]
+    
+    # Heuristic: Check for MTG terms
+    for keyword in mtg_keywords:
+        if keyword in q_lower:
+            return "rules"
+            
+    # If it's not meta and has no MTG terms, it's likely off-topic
+    return "off_topic"
 
 def main():
     print("🔮 MTG Rulebook AI Judge (RAG Edition) 🔮")
@@ -174,6 +186,21 @@ def main():
                 
                 print("\r Judge: ", end="")
                 print(response.choices[0].message.content)
+                print()
+                continue
+
+            if intent == "off_topic":
+                import random
+                refusals = [
+                    "⚠️ **Warning: Unsportsmanlike Conduct!** Judge! This is a Magic tournament, not a life advice seminar. I can't answer that. Stick to the stack!",
+                    "🛑 **Game Loss!** Bringing outside assistance/topics into this match is strictly forbidden. The Comprehensive Rules do not cover that. Please return to your seat.",
+                    "🚫 **Countered!** I'm a Judge, not a search engine for the multiverse. Unless that involves a Mana Leak or a Shivan Dragon, I'm staying out of it.",
+                    "📑 **Rule 100.1:** Magic is a game. Your question is not. Please consult the Comp Rules for game-related queries only.",
+                    "🤡 **Judge!** We are playing Magic here. Talking about that is a major distraction. Consider this a final warning before I call the Head Judge."
+                ]
+                print(f"Using {model_display} (Off-topic)...")
+                print("\r Judge: ", end="")
+                print(random.choice(refusals))
                 print()
                 continue
 
