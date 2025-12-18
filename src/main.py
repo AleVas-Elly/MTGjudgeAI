@@ -16,6 +16,11 @@ SERVICE_NAME = "mtg_rulebook_ai"
 USERNAME = "gemini_api_key"
 TOP_K_CHUNKS = 50  # Retrieve top 50 most relevant chunks (~40-50k tokens)
 
+def ensure_directories():
+    """Create necessary directories if they don't exist."""
+    os.makedirs('data', exist_ok=True)
+    print("✅ Directory structure verified")
+
 def get_api_key():
     """Retrieves the API key from the system keyring or prompts the user."""
     # Try getting from keychain first
@@ -78,6 +83,9 @@ def retrieve_relevant_chunks(query, index_data, model, top_k=TOP_K_CHUNKS):
 def main():
     print("🔮 MTG Rulebook AI Judge (RAG Edition) 🔮")
     print("------------------------------------------")
+    
+    # Ensure directory structure exists
+    ensure_directories()
     
     # Setup
     api_key = get_api_key()

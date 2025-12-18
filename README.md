@@ -11,7 +11,7 @@ An intelligent Magic: The Gathering rules assistant powered by **Retrieval-Augme
 - **RAG Architecture**: Processes the entire Comprehensive Ruleset by indexing it into semantic chunks, allowing for fast and relevant context retrieval.
 - **Vivid Game Examples**: Every answer includes a concrete game scenario with specific card names to illustrate the rules.
 - **System Keychain Integration**: Securely stores your Gemini API key using `keyring`.
-- **High Throughput**: Capable of ~5.6 Questions Per Minute (QPM) while maintaining extreme accuracy via Gemini 2.5 Flash.
+- **High Throughput**: Capable of ~5.6 Questions Per Minute (QPM) while maintaining more than good accuracy via Gemini 2.5 Flash.
 
 ## 📊 Performance & Limits
 

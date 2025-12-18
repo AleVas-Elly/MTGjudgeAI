@@ -1,10 +1,15 @@
 import re
 import pickle
+import os
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
 RULEBOOK_PATH = 'data/MagicCompRules.txt'
 INDEX_PATH = 'data/rulebook_index.pkl'
+
+def ensure_directories():
+    """Create necessary directories if they don't exist."""
+    os.makedirs('data', exist_ok=True)
 
 def parse_rulebook_into_chunks(rulebook_text):
     """Parse the rulebook into logical chunks by rule sections."""
@@ -57,6 +62,7 @@ def parse_rulebook_into_chunks(rulebook_text):
 
 def create_index():
     """Create semantic index of the rulebook."""
+    ensure_directories()
     print("📚 Loading rulebook...")
     with open(RULEBOOK_PATH, 'r', encoding='utf-8') as f:
         rulebook_text = f.read()
