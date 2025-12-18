@@ -3,25 +3,25 @@
 > [!IMPORTANT]
 > **WORK IN PROGRESS**: This project is currently under active development. Features and documentation may change frequently.
 
-An intelligent Magic: The Gathering rules assistant powered by **Retrieval-Augmented Generation (RAG)**. This project uses Google Gemini for advanced reasoning and semantic search for high-speed, accurate rules lookup.
+An intelligent Magic: The Gathering rules assistant powered by **Retrieval-Augmented Generation (RAG)**. This project uses **Groq (Llama 3.3 70B)** for state-of-the-art reasoning and semantic search for high-speed, accurate rules lookup.
 
 ## 🚀 Features
 
 - **Expert Level Accuracy**: Emulates a Level 3 MTG Judge with clear, concise, and legally correct answers.
 - **RAG Architecture**: Processes the entire Comprehensive Ruleset by indexing it into semantic chunks, allowing for fast and relevant context retrieval.
 - **Vivid Game Examples**: Every answer includes a concrete game scenario with specific card names to illustrate the rules.
-- **System Keychain Integration**: Securely stores your Gemini API key using `keyring`.
-- **High Throughput**: Capable of ~5.6 Questions Per Minute (QPM) while maintaining more than good accuracy via Gemini 2.5 Flash.
+- **System Keychain Integration**: Securely stores your Groq API key using `keyring`.
+- **High Throughput**: Capable of ~60+ Questions Per Minute (QPM) while maintaining more than good accuracy via Llama 3.3 70B.
 
 ## 📊 Performance & Limits
 
-Based on recent load tests using 10 complex MTG rules questions:
-- **Average Response Time**: ~10.7 seconds.
-- **Measured Throughput**: 5.61 Questions Per Minute (QPM).
-- **Recommended Speed**: 5 RPM (to stay within free tier rate limits).
+Based on tests using Groq's high-speed inference:
+- **Average Response Time**: ~1-3 seconds.
+- **Measured Throughput**: Up to 60+ Questions Per Minute (QPM) depending on rate limits.
+- **Recommended Speed**: Stay within Groq's free tier RPM (Rate Per Minute) limits.
 
 > [!NOTE]
-> This project uses **Gemini 1.5 Flash** by default for higher free tier quotas (1500 requests/day). While Gemini 2.5 Flash offers improved accuracy, it has a much lower daily limit (20 requests/day). You can switch between models by editing the `model` parameter in `src/main.py`.
+> This project uses **Llama 3.3 70B** via Groq, which offers GPT-4 level intelligence with a much higher free quota than Gemini's tiered system.
 
 ## 🛠️ Architecture
 
@@ -34,13 +34,13 @@ The system operates in two main phases:
 
 2.  **Querying (`src/main.py`)**:
     - Uses semantic search to find the top 50 most relevant rule chunks for a user's question.
-    - Constructs a rich context for the Gemini 1.5 Flash model.
+    - Constructs a rich context for the **Llama 3.3 70B** model.
     - Maintains a short conversation history for contextual follow-up questions.
 
 ## 📋 Prerequisites
 
 - Python 3.8+
-- A Google Gemini API Key (get one for free at [AI Studio](https://aistudio.google.com/app/apikey))
+- A Groq API Key (get one for free at [Groq Console](https://console.groq.com/keys))
 
 ## ⚙️ Setup
 

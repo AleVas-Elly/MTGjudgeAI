@@ -3,7 +3,7 @@ import sys
 import keyring
 import pickle
 from dotenv import load_dotenv
-from google import genai
+from groq import Groq
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
@@ -13,7 +13,7 @@ load_dotenv()
 RULEBOOK_PATH = 'data/MagicCompRules.txt'
 INDEX_PATH = 'data/rulebook_index.pkl'
 SERVICE_NAME = "mtg_rulebook_ai"
-USERNAME = "gemini_api_key"
+USERNAME = "groq_api_key"
 TOP_K_CHUNKS = 50  # Retrieve top 50 most relevant chunks (~40-50k tokens)
 
 def ensure_directories():
@@ -28,11 +28,11 @@ def get_api_key():
     
     # If not in keychain, check env var as backup
     if not api_key:
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = os.getenv("GROQ_API_KEY")
 
     if not api_key:
-        print("\n⚠️  Gemini API Key not found in Keychain or environment.")
-        print("You can get a free key from: https://aistudio.google.com/app/apikey")
+        print("\n⚠️  Groq API Key not found in Keychain or environment.")
+        print("You can get a free key from: https://console.groq.com/keys")
         print("Required for the first run only. It will be saved securely to your System Keychain.")
         api_key = input("Please paste your API Key here: ").strip()
         if not api_key:
@@ -89,7 +89,7 @@ def main():
     
     # Setup
     api_key = get_api_key()
-    client = genai.Client(api_key=api_key)
+    client = Groq(api_key=api_key)
     
     # Load index
     index_data = load_index()
@@ -166,23 +166,41 @@ FORMAT YOUR RESPONSES LIKE THIS:
             
             print("💭 Thinking...                ", end="\r")
             
-            # Build contents with system instruction and history
-            contents = [system_instruction] + history + [user_input]
+            # Build messages for Groq chat completion
+            messages = []
             
-            response = client.models.generate_content(
-                model='gemini-1.5-flash',  # Using 1.5 for higher free tier quota
-                contents=contents,
-                config={'response_modalities': ['TEXT']}
+            # Add system message
+            messages.append({
+                "role": "system",
+                "content": system_instruction
+            })
+            
+            # Add conversation history
+            for i in range(0, len(history), 2):
+                if i < len(history):
+                    messages.append({"role": "user", "content": history[i]})
+                if i + 1 < len(history):
+                    messages.append({"role": "assistant", "content": history[i + 1]})
+            
+            # Add current user input
+            messages.append({"role": "user", "content": user_input})
+            
+            # Call Groq API
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",  # Most intelligent Groq model
+                messages=messages,
+                temperature=0.3,  # Lower for more consistent, accurate responses
+                max_tokens=2048
             )
             
             # Display response
             print("\r Judge: ", end="")
-            print(response.text)
+            print(response.choices[0].message.content)
             print()
             
             # Update history (keep last 4 exchanges to maintain context)
             history.append(user_input)
-            history.append(response.text)
+            history.append(response.choices[0].message.content)
             if len(history) > 8:  # Keep last 4 Q&A pairs
                 history = history[-8:]
             
