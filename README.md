@@ -1,61 +1,61 @@
 # 🔮 MTG Rulebook AI Judge
 
 > [!IMPORTANT]
-> **WORK IN PROGRESS**: This project is currently under active development. Features and documentation may change frequently.
+> **EXPERT SYSTEM**: This assistant emulates a Level 3 MTG Judge using a high-performance **Orchestration & Critic** pattern. It is designed for both speed (8B) and absolute rules accuracy (70B).
 
-An intelligent Magic: The Gathering rules assistant powered by **Retrieval-Augmented Generation (RAG)**. This project uses **Groq (Llama 3.3 70B)** for state-of-the-art reasoning and a semantic vector index for high-speed, accurate rules lookup.
+An intelligent Magic: The Gathering rules assistant powered by **Retrieval-Augmented Generation (RAG)**. This project uses **Groq**'s high-speed inference to provide authoritative rulings, market intelligence, and historical card dossiers.
 
-## 🚀 Features
+## 🚀 Core High-Performance Features
 
-- **Expert Level Accuracy**: Emulates a Level 3 MTG Judge with clear, concise answers and official rule citations.
-- **RAG Architecture**: Processes the entire Comprehensive Ruleset via a semantic vector index for relevant context retrieval.
-- **Historical Card Dossiers**: Fetch all unique prints, rarity, artist info, and finishes for any card.
-- **Real-Time Market Pricing**: Live price data in EUR (€), USD ($), and TIX pulled directly from Scryfall.
-- **Official B&R Verification**: Features a background sync engine that parses the official Wizards of the Coast Banned & Restricted list to provide authoritative legality checks.
-- **Modular Service Architecture**: Professional, decoupled codebase using service-oriented design for LLM, RAG, and data retrieval.
-- **System Keychain Integration**: Securely stores your Groq API key using the system's native keychain.
-- **Dual-Mode Intelligence**: 
-    - **Fast (8B)**: Llama 3.1 8B Instant for rapid-fire rulings.
-    - **Deep (70B)**: Llama 3.3 70B Versatile for complex logic and layer-based interactions.
-
-## 📊 Performance & Limits
-
-- **Inference Speed**: ~1-3 seconds per query via Groq's high-speed TPU/LPUs.
-- **Semantic Search**: Sub-millisecond retrieval from the local vector index.
+- **Dual-Model Intelligence**: 
+    - **Orchestrator (70B)**: Always used for high-precision tasks like intent detection, card name extraction, and complex search query generation.
+    - **Fast Generator (8B)**: Llama 3.1 8B performs the final response generation for sub-second latency.
+- **The Critic Pattern**: Every response from the 8B model is automatically verified by a format validator. If sections are missing or the quality is low, the query is **automatically escalated** to the 70B model.
+- **Cross-Intent Context Persistence**: The Judge remembers the card you are discussing across different turns—switch from rules analysis to price trends without repeating the card name.
+- **Defensive Resource Management**: Implements character-based context truncation to stay within strict Tokens-Per-Minute (TPM) limits of free/low-tier API accounts.
+- **Data Harvesting (Mining Gold)**: Automatically logs high-quality "Gold Standard" interactions (from 70B) to `logs/interactions.jsonl` for future native fine-tuning of smaller models.
 
 ## 🛠️ Project Structure
 
-The project follows a modular architecture for better maintainability:
+- `src/`: Core Application Logic
+    - `services/`: Modular logic for LLM (Groq), RAG (Vector storage), Scryfall, Market, and Legality.
+    - `cli.py`: Refactored interactive interface with specialized context handlers.
+    - `config.py`: Centralized configuration for the "MTG Know-it-all Judge" persona and prompts.
+- `scripts/`: Development & Maintenance
+    - `run_benchmarks.py`: Automated quality control script to verify persona and format accuracy.
+    - `data_setup.py`: Master script for environment preparation.
+- `tests/`: Benchmark data and test cases.
+- `logs/`: Continuous data harvesting for fine-tuning.
 
-- `src/services/`: Core logic for `LLM`, `RAG`, `Scryfall`, and `Legality`.
-- `src/utils/`: Security (keychain) and I/O utilities.
-- `src/config.py`: Centralized configuration for models, paths, and prompts.
-- `src/cli.py`: Interactive command-line interface.
-- `src/br_updater.py`: Automated web parser for official B&R lists.
-- `src/indexer.py`: Rulebook embedding and indexing engine.
+## ⚙️ Quick Start
 
-## ⚙️ Setup
-
-1. **Clone and Install**:
+1. **Clone the Project**:
    ```bash
    git clone https://github.com/AleVas-Elly/MTGjudgeAI.git
    cd MTGjudgeAI
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
    ```
 
-2. **Initialize Data**:
-   - Run the automated setup: `python -m src.data_setup`
-   - This will download the latest official rules, build the vector index, and sync the B&R list.
-
-3. **Launch**:
+2. **One-Command Setup**:
+   Simply run this to create the environment, install dependencies, and initialize the rulebook data:
    ```bash
-   python -m src.main
+   make setup
+   ```
+   *(Or run `./setup.sh` if you don't have make)*
+
+3. **Launch the Judge**:
+   ```bash
+   make run
    ```
 
-On the first run, you will be prompted for your **Groq API Key**. It will be saved securely to your system keychain.
+4. **Run Quality Benchmarks**:
+   ```bash
+   make benchmark
+   ```
 
-## 📄 License & Legal
+On the first run, you will be prompted for your **Groq API Key**. It will be saved securely to your system keychain and won't be requested again.
 
-This project is an unofficial fan tool. Magic: The Gathering is a trademark of Wizards of the Coast LLC.
+## 📄 Vision & Roadmap
+For details on the project's evolution (Phase 1-4), check [ROADMAP_VISION.txt](ROADMAP_VISION.txt) and the [AGENT_SELF_PROMPT.txt](AGENT_SELF_PROMPT.txt) for technical implementation standards.
+
+---
+*Disclaimer: This project is an unofficial fan tool. Magic: The Gathering is a trademark of Wizards of the Coast LLC.*

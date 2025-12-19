@@ -1,0 +1,20 @@
+[
+    {
+        "query": "How does Blood Moon interact with Urza's Saga?",
+        "expected_sections": [
+            "🃏 CARD INFO",
+            "📜 ORACLE TEXT",
+            "⚖️ RULING",
+            "💡 GAMEPLAY SCENARIO"
+        ]
+    },
+    {
+        "query": "What is Force of Will?",
+        "expected_sections": [
+            "🃏 CARD INFO",
+            "📜 ORACLE TEXT",
+            "⚖️ RULING",
+            "💡 GAMEPLAY SCENARIO"
+        ]
+    }
+]

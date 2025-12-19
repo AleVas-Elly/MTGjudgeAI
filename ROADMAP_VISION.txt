@@ -1,0 +1,29 @@
+MTG AI JUDGE: ROADMAP & VISION
+
+CURRENT STATUS (Phases 1-3 Complete):
+1.  Persona: 'MTG Know-it-all Judge' integrated via few-shot prompting.
+2.  Orchestration: 70B model handles intent/extraction; 8B handles generation.
+3.  Reliability: Critic/Escalation loop ensures 4-section format compliance.
+4.  Context: Full persistence across conversational turns and intent switches.
+5.  Safety: Defensive truncation prevents token overflows (6k TPM limit).
+6.  Data: Harvesting 'Gold Standard' interactions for future fine-tuning.
+
+THE VISION: PHASE 4 & BEYOND
+
+Phase 4: Structured Rules Engine
+- The 'Layer System' Problem: RAG is good for text, but bad for logic-chaining (e.g., Magus of the Moon + Humility).
+- Solution: Integrate a structured database (JSON/Graph) of card 'Abilities' and 'Static Effects'.
+- Logic: When a card affects types or base P/T, the Judge shifts from "reading text" to "calculating the final state" using a dedicated Rules Engine module.
+
+Phase 5: Native Fine-Tuning
+- Objective: Fine-tune a Llama-3-8B model on the harvested 'Gold' logs.
+- Goal: Achieve 70B logic and persona quality at 8B speed and cost, eliminating the need for the Escalation loop.
+
+Phase 6: Multi-Modal & Rich Interface
+- Image Recognition: Snap a photo of a board state and ask "What happens if I cast this?".
+- GUI: Move from CLI to a beautiful, glassmorphic Web UI with interactive card hover-states.
+
+STRATEGY FOR CONTINUOUS IMPROVEMENT
+- Run benchmarks after every core code change.
+- Never prioritize speed over accuracy in rules disputes.
+- Maintain the 'Know-it-all' persona to build user trust in the AI's authority.

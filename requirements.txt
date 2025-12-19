@@ -5,3 +5,5 @@ sentence-transformers
 numpy
 requests
 beautifulsoup4
+fastapi
+uvicorn

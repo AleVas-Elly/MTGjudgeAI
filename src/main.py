@@ -1,10 +1,12 @@
 import os
-from src.utils.security import get_api_key
-from src.utils.io import ensure_data_dir
-from src.services.llm import LLMService
-from src.services.rag import RAGService
-from src.services.scryfall import CardService
-from src.services.legality import LegalityService
+from backend.app.utils.security import get_api_key
+from backend.app.utils.io import ensure_data_dir
+from backend.app.services.llm import LLMService
+from backend.app.services.rag import RAGService
+from backend.app.services.scryfall import CardService
+from backend.app.services.legality import LegalityService
+from backend.app.services.cardtrader import CardTraderService
+from backend.app.services.market import MarketIntelligenceService
 from src.cli import MTGJudgeCLI
 
 def main():
@@ -18,9 +20,12 @@ def main():
     rag = RAGService()
     cards = CardService()
     legality = LegalityService()
+    cardtrader = CardTraderService()
+    cardtrader = CardTraderService()
+    market = MarketIntelligenceService(cardtrader)
     
     # Start Interface
-    app = MTGJudgeCLI(llm, rag, cards, legality)
+    app = MTGJudgeCLI(llm, rag, cards, legality, cardtrader, market)
     app.start()
 
 if __name__ == "__main__":

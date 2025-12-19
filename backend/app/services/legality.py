@@ -1,6 +1,6 @@
 import json
 import os
-from src.config import BR_FILE
+from backend.app.core.config import BR_FILE
 
 class LegalityService:
     def __init__(self):

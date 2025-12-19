@@ -1,7 +1,7 @@
 import os
 import sys
 import keyring
-from src.config import SERVICE_NAME, USERNAME
+from backend.app.core.config import SERVICE_NAME, USERNAME
 
 def get_api_key():
     """Retrieves the API key from keychain or environment."""

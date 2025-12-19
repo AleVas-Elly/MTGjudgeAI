@@ -1,5 +1,5 @@
 import requests
-from src.config import SCRTYFALL_NAMED_URL, SCRTYFALL_SEARCH_URL
+from backend.app.core.config import SCRYFALL_NAMED_URL, SCRYFALL_SEARCH_URL
 
 class CardService:
     @staticmethod
@@ -8,7 +8,12 @@ class CardService:
         card_data = []
         for name in card_names:
             try:
-                resp = requests.get(SCRTYFALL_NAMED_URL, params={"exact": name}, timeout=10)
+                # Try exact match first
+                resp = requests.get(SCRYFALL_NAMED_URL, params={"exact": name}, timeout=10)
+                if resp.status_code != 200:
+                    # Fallback to fuzzy match
+                    resp = requests.get(SCRYFALL_NAMED_URL, params={"fuzzy": name}, timeout=10)
+                
                 if resp.status_code != 200:
                     continue
                 
@@ -24,8 +29,18 @@ class CardService:
                     "artist": data.get("artist"),
                     "set_name": data.get("set_name"),
                     "rarity": data.get("rarity"),
+                    "image": None,
                     "rulings": []
                 }
+                
+                # Image Logic (Handle DFCs)
+                if "image_uris" in data:
+                    info["image"] = data["image_uris"].get("large") or data["image_uris"].get("normal")
+                elif "card_faces" in data:
+                    # For now just grab the front face
+                    front = data["card_faces"][0]
+                    if "image_uris" in front:
+                        info["image"] = front["image_uris"].get("large") or front["image_uris"].get("normal")
                 
                 rulings_url = data.get("rulings_uri")
                 if rulings_url:
@@ -40,40 +55,42 @@ class CardService:
         return card_data
 
     @staticmethod
-    def get_card_versions(card_name):
-        """Fetches all unique prints of a card."""
+    def get_card_versions(query):
+        """Fetches all unique prints based on a Scryfall search query."""
         versions = []
         params = {
-            "q": f'!"{card_name}"',
+            "q": query.strip(),
             "unique": "prints",
             "order": "released",
             "dir": "asc"
         }
         
         try:
-            resp = requests.get(SCRTYFALL_SEARCH_URL, params=params, timeout=10)
+            resp = requests.get(SCRYFALL_SEARCH_URL, params=params, timeout=10)
             if resp.status_code != 200:
                 return []
             
             data = resp.json()
-            for item in data.get("data", [])[:25]:
+            for item in data.get("data", []):
                 prices = item.get("prices", {})
                 legals = [f"{f}:{s}" for f, s in item.get("legalities", {}).items() if s != "not_legal"]
                 
                 versions.append({
+                    "id": item.get("id"),
+                    "name": item.get("name"),
                     "set_name": item.get("set_name"),
                     "set": item.get("set").upper(),
+
                     "released_at": item.get("released_at"),
                     "collector_number": item.get("collector_number"),
                     "rarity": item.get("rarity").capitalize(),
                     "artist": item.get("artist"),
                     "finishes": item.get("finishes", []),
                     "prices": {
-                        "eur": prices.get("eur", "N/A"),
-                        "eur_foil": prices.get("eur_foil", "N/A"),
-                        "usd": prices.get("usd", "N/A"),
-                        "usd_foil": prices.get("usd_foil", "N/A"),
-                        "tix": prices.get("tix", "N/A")
+                        "eur": prices.get("eur") or "N/A",
+                        "eur_foil": prices.get("eur_foil") or "N/A",
+                        "usd": prices.get("usd") or "N/A",
+                        "usd_foil": prices.get("usd_foil") or "N/A"
                     },
                     "legalities": ", ".join(legals)
                 })

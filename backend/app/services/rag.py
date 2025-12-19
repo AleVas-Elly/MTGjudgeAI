@@ -2,7 +2,7 @@ import os
 import pickle
 import numpy as np
 from sentence_transformers import SentenceTransformer
-from src.config import INDEX_PATH, TOP_K_CHUNKS
+from backend.app.core.config import INDEX_PATH, TOP_K_CHUNKS
 
 class RAGService:
     def __init__(self):
