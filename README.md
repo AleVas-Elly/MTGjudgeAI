@@ -55,7 +55,7 @@ An intelligent Magic: The Gathering rules assistant powered by **Retrieval-Augme
 On the first run, you will be prompted for your **Groq API Key**. It will be saved securely to your system keychain and won't be requested again.
 
 ## 📄 Vision & Roadmap
-For details on the project's evolution (Phase 1-4), check [ROADMAP_VISION.txt](ROADMAP_VISION.txt) and the [AGENT_SELF_PROMPT.txt](AGENT_SELF_PROMPT.txt) for technical implementation standards.
+For details on the project's evolution (Phase 1-4), check [ROADMAP_VISION.txt](ROADMAP_VISION.txt) and the [MTG_RULEBOOK_GUIDE.md](MTG_RULEBOOK_GUIDE.md) for a comprehensive technical guide to the codebase.
 
 ---
 *Disclaimer: This project is an unofficial fan tool. Magic: The Gathering is a trademark of Wizards of the Coast LLC.*
